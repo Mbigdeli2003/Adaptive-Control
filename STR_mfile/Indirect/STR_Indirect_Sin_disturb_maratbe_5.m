@@ -1,0 +1,174 @@
+%% STR-dynamic-Indirect feedback-pole placemnet-nozero cancelled_white
+%% step disturbunce-martabe4
+clc
+clear all
+close all
+syms q
+%% deifine Uc
+t=0:150;
+% Uc=zeros(9*length(T));
+u1=2*ones(1,length(t));
+u2=-1*ones(1,length(t));
+u3=ones(1,length(t));
+Uc=[zeros(1,5) u1 u2 u3];
+
+
+%% define Tf
+s=tf('s');
+%unstable system
+H=(s+0.5)/((3*s-1)*(s^2+1*s+1.2));
+%desired system
+G=((s+0.5)*(s+1)*(s+0.75))/((3*s+1.2)*(s^2+1*s+1.2)*(3*s+5)*(3*s+2));
+%% dicrtisize sys with 20*bandwidth
+fh=bandwidth(H);
+fg=bandwidth(G);
+Th=0.2;
+Hd=c2d(H,Th);
+Tg=0.5;
+Gd=c2d(G,Tg);
+% H num & den
+Ah=Hd.den{1,1};
+Bh=Hd.num{1,1};
+B=Bh(2:end);
+Ag=Gd.den{1,1};
+Bg=Gd.num{1,1};
+B_g=Bg(2:end);
+%system polynaminals defining with q
+
+%% system identifying
+%% sys identify
+% noise loading, minor(var=0.01),major(var=2),average(var=0.1)
+yh=zeros(1,length(Uc));
+yg=zeros(1,length(Uc));
+Y=zeros(1,length(Uc));
+U=zeros(1,length(Uc));
+phi_H= zeros(1,10);
+
+k = zeros(length(phi_H(1,:)));
+p = zeros(length(phi_H(1,:)));
+alpha =1e10;
+p(:,:,5) = alpha*eye(length(phi_H(1,:)));
+teta_H = [zeros(10,1),zeros(10,1),zeros(10,1),zeros(10,1),zeros(10,1)];
+phi_H= zeros(1,10);
+
+K = zeros(length(phi_H(1,:)));
+P = zeros(length(phi_H(1,:)));
+alpha =1e10;
+P(:,:,5) = alpha*eye(length(phi_H(1,:)));
+teta_H_1 = [zeros(10,1),zeros(10,1),zeros(10,1),zeros(10,1),zeros(10,1),zeros(10,1)];
+A=zeros(1,5);
+B=zeros(1,5);
+%% defining sinusoid disturbunce
+f=0.2;x=0:0.1:120; % frequency defining
+e=0.05*sin(2*pi*f*x);
+t=0;
+% %% defining step disturbunce
+% e=0.8*ones(1,2*length(Uc));
+% t=0;
+%% adaptive identification system H
+% for o=4:length(Uc)
+
+for i=6:length(Uc)
+    t=t+1;
+    
+%      if  teta_H(1:3,i-1)'-Ah(1:3)==0 & teta_H(4:6,i-1)'-Bh(1:3)==0
+ yh(i)=-(Ah(1,2)*yh(i-1))-Ah(1,3)*yh(i-2)-(Ah(1,4)*yh(i-3))+(Bh(1,2)*Uc(i-1))+(Bh(1,3)*Uc(i-2))+(Bh(1,4)*Uc(i-3)); 
+ if t>=200
+  yh(i)=-(Ah(1,2)*yh(i-1))-Ah(1,3)*yh(i-2)-(Ah(1,4)*yh(i-3))+(Bh(1,2)*Uc(i-1))+(Bh(1,3)*Uc(i-2))+(Bh(1,4)*Uc(i-3))+e(t);
+ end
+  phi_H(i,:)=[-yh(i-1) -yh(i-2) -yh(i-3) -yh(i-4) -yh(i-5) Uc(i-1) Uc(i-2) Uc(i-3) Uc(i-4) Uc(i-5)];
+    k(:,i)=p(:,:,i-1)*phi_H(i,:)'/(1+phi_H(i,:)*p(:,:,i-1)*phi_H(i,:)');
+    p(:,:,i)=(eye(length(phi_H(i,:)))-k(:,i)*phi_H(i,:))*p(:,:,i-1);
+    teta_H(:,i)=teta_H(:,i-1)+k(:,i)*(yh(i)-phi_H(i,:)*teta_H(:,i-1));
+A(i,1:5)=teta_H(1:5,i);
+B(i,1:5)=teta_H(6:10,i);
+ 
+if i>=30
+
+
+% %% define desired system and real system with no pole zero cancellation
+ Am=Ag ;
+ Bm=B_g;
+ Am_q=poly2sym(Am,q);
+ %% control with diophantine  
+ %observer
+ a0=0.02;a1=0.01;a2=0.03;a3=0.04;%defining A0 coeffs
+ Ao_q=(q+a0)*(q+a1)*(q+a2)*(q+a3);
+ B_plus=1;  
+ B_minus=B(i,1);
+ B_plus_q=poly2sym(B_plus,q);
+ B_q=poly2sym(B(i,1:5),q);
+ A_q=poly2sym([1 A(i,1:5)],q);
+   
+   %% desired system poly
+Ac_q=Ao_q*Am_q*B_plus_q;
+Ac_c=coeffs(Ac_q,q);
+Ac=sym2poly(Ac_c);
+
+%% silvester matrix and Dioph equation
+E=[A(i,5)    0   0       0     0      B(i,5)   0      0      0      0;...
+   A(i,4) A(i,5) 0       0     0      B(i,4)   B(i,5) 0      0      0;...
+   A(i,3) A(i,4) A(i,5)  0     0      B(i,3)   B(i,4) B(i,5) 0      0;...
+   A(i,2) A(i,3) A(i,4) A(i,5) 0      B(i,2)   B(i,3) B(i,4) B(i,5) 0;...
+   A(i,1) A(i,2) A(i,3) A(i,4) A(i,5) B(i,1)   B(i,2) B(i,3) B(i,4) B(i,5);...
+   1      A(i,1) A(i,2) A(i,3) A(i,4) 0        B(i,1) B(i,2) B(i,3) B(i,4);...
+   0      1      A(i,1) A(i,2) A(i,3) 0        0      B(i,1) B(i,2) B(i,3);...
+   0      0      1      A(i,1) A(i,2) 0        0      0      B(i,1) B(i,2);...
+   0      0      0      1      A(i,1) 0        0      0      0      B(i,1);...
+   0      0      0      0      1      0        0      0      0      0     ];
+
+% controller parameter
+T=sym2poly(Ao_q);
+RS=E\Ac';
+R=RS(1:5,1)';
+S=RS(6:10,1)';
+
+R=flipdim(R,2);
+S=flipdim(S,2);
+
+%% testing controller obtaiend parameters Ru=TUc-Sy
+
+    % main system
+%    yh(i)=-(Ah(1,2)*yh(i-1))-Ah(1,3)*yh(i-2)-(Ah(1,4)*yh(i-3))+(Bh(1,2)*Uc(i-1))+(Bh(1,3)*Uc(i-2))+(Bh(1,4)*Uc(i-3));
+
+     
+    Y(i)=-(A(i,1)*Y(i-1))-(A(i,2)*Y(i-2))-(A(i,3)*Y(i-3))-(A(i,4)*Y(i-4))-(A(i,5)*Y(i-5))+(B(i,1)*U(i-1))+(B(i,2)*U(i-2))+(B(i,3)*U(i-3)+B(i,4)*U(i-4)+B(i,5)*U(i-5));
+    
+    U(i)=-(R(1,2)*U(i-1)+R(1,3)*U(i-2)+R(1,4)*U(i-3)+R(1,5)*U(i-4))+(T(1,1)*Uc(i)+T(1,2)*Uc(i-1)+T(1,3)*Uc(i-2)+T(1,4)*Uc(i-3)+T(1,5)*Uc(i-4))-(S(1,1)*Y(i)+S(1,2)*Y(i-1)+S(1,3)*Y(i-2)+S(1,4)*Y(i-3)+S(1,5)*Y(i-4));
+  
+  %  desired system
+yg(i)=-(Ag(1,2)*yg(i-1))-(Ag(1,3)*yg(i-2))-(Ag(1,4)*yg(i-3))-(Ag(1,5)*yg(i-4))-(Ag(1,6)*yg(i-5))+(Bg(1,2)*Uc(i-1))+(Bg(1,3)*Uc(i-2))+(Bg(1,4)*Uc(i-3))+(Bg(1,5)*Uc(i-4))+(Bg(1,6)*Uc(i-5));
+end
+end
+
+% end
+%% plotting
+ figure;
+ subplot(2,1,1)
+ plot(Uc,'b','linewidth',3);axis([0 500 -4 6]);hold on
+ plot(1.8*Y,'g-','linewidth',3);axis([0 500 -4 20]);hold on
+ plot(35*yg,'r--','linewidth',2.5);legend('Uc','Y','Yd');axis([0 500 -4 6]);grid on
+subplot(2,1,2);
+plot(U,'b','linewidth',2.5);legend('control signal')
+grid on
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

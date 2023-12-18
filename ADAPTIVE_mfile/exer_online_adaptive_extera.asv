@@ -1,0 +1,114 @@
+%% Exer_2_adaptive_online
+clc
+clear all
+close all
+format long
+%% define tranfer function
+s=tf('s');
+G=(s+0.5)/((3*s+1)*(s^2+0.7*s+1));
+H=(s+0.5)/((3*s-1)*(s^2+0.7*s+1));
+%% discrete system with 20 times bandwidth sapmilg frequency
+fg=bandwidth(G);
+fh=bandwidth(H);
+Tg=1/(20*fg);
+Th=1/(20*fh);
+Gd=c2d(G,Tg);
+Hd=c2d(H,Th);
+%% define idpoly system
+%G num & den
+Ag=Gd.den{1,1};
+Bg=Gd.num{1,1};
+AG=[Ag(1,2:4) Bg(1,2:4)]';
+% idpoly G system
+m0_G=idpoly(Ag,Bg)
+% H num & den
+Ah=Hd.den{1,1};
+Bh=Hd.num{1,1};
+AH=[Ah(1,2:4) Bh(1,2:4)]';
+% idpoly H system
+m0_H=idpoly(Ah,Bh)
+%% system G with random inputs
+n=1000
+ind_1=0;
+yg=zeros(1,n);
+u_1=rand(1,n);
+Gp=1e4*eye(6);
+Gtheta=zeros(6,n);
+Gk=zeros(6,n);
+Gerror=zeros(1,n)+1;
+yg_test=zeros(1,n);
+Gapprox=zeros(1,n);
+
+
+% P0_1=zeros
+for i=4:1:max(size(u_1))
+ yg(i)=-(Ag(1,2)*yg(i-1))-Ag(1,3)*yg(i-2)-(Ag(1,4)*yg(i-3))+(Bg(1,2)*u_1(i-1))+(Bg(1,3)*u_1(i-2))+(Bg(1,4)*u_1(i-3));   
+ 
+end
+for i=4:n
+    Gfi=[yg(i-1);yg(i-2);yg(i-3);u_1(i-1);u_1(i-2);u_1(i-3)];%6x1
+    Gk(:,i)=Gp*Gfi*inv(1+Gfi'*Gp*Gfi);%6x1
+    Gerror(i)=yg(i)-Gfi'*Gtheta(:,i-1);
+    Gapprox(i)=Gfi'*Gtheta(:,i-1);
+    Gtheta(:,i)=Gtheta(:,i-1)+Gk(:,i)*Gerror(i);%6x1
+    Gp=[eye(6)-Gk(:,i)*Gfi']*Gp;%6x6    
+    yg_test(i)=Gtheta(1,i)*yg(i-1)+Gtheta(2,i)*yg(i-2)+Gtheta(3,i)*yg(i-3)+Gtheta(4,i)*u_1(i-1)+Gtheta(5,i)*u_1(i-2)+Gtheta(6,i)*u_1(i-3);
+    yg_error=abs(yg(i)-yg_test(i));
+    ind_1=i;
+end
+for i=ind_1:n
+    Gapprox(i)=Gtheta(1,ind_1)*Gapprox(i-1)+Gtheta(2,ind_1)*Gapprox(i-2)+Gtheta(3,ind_1)*Gapprox(i-3)+Gtheta(4,ind_1)*u_1(i-1)+Gtheta(5,ind_1)*u_1(i-2)+Gtheta(6,ind_1)*u_1(i-3);
+end
+
+figure(2)
+plot(1:n,yg)
+hold on
+plot(1:n,Gapprox,'r')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% u_1(i-1)=inv(phi_G_1(i-1)'*phi_G_1(i-1));
+
+
+
+
+
+    
+    
+    
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

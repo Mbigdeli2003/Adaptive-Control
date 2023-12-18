@@ -1,0 +1,61 @@
+%% exer_adaptive_offline
+
+clc
+clear all
+close all
+%% define tranfer function
+s=tf('s');
+G=(s+0.5)/((3*s+1)*(s^2+0.7*s+1));
+H=(s+0.5)/((3*s-1)*(s^2+0.7*s+1));
+%% discrisized the system with 20 times bandwidth
+fg=bandwidth(G);
+fh=bandwidth(H);
+Tg=1/(20*fg);
+Th=1/(20*fh);
+Gd=c2d(G,Tg);
+Hd=c2d(H,Th);
+%% define idpoly system
+%G num & den
+Ag=Gd.den{1,1};
+Bg=Gd.num{1,1};
+% idpoly G system
+m0_G=idpoly(Ag,Bg)
+% H num & den
+Ah=Hd.den{1,1};
+Bh=Hd.num{1,1};
+% idpoly H system
+m0_H=idpoly(Ah,Bh);
+%% define inputs
+%random input
+n=20
+u_1=rand(n,1);
+% impulse input
+p=10;%pulse value
+j=20;k=20;
+u_2=[zeros(1,j) p zeros(1,k)]';
+%% sim system
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
